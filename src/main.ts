@@ -1,9 +1,9 @@
-import { Swagger } from './providers/swagger';
+import { OpenApi } from './providers/open-api';
 
 async function bootstrap() {
-  const spec = new Swagger(
+  const openApi = new OpenApi(
     'https://api.apis.guru/v2/specs/apis.guru/2.2.0/openapi.json',
   );
-  await spec.init();
+  await openApi.init();
 }
 bootstrap();
