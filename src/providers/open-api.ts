@@ -66,14 +66,21 @@ export class OpenApi {
     return this.spec['components']['schemas'][ref];
   }
 
-  // TODO: fix correct type all over the methods bellow
   // TODO: check for possible circular references
-  getResponseObject(ref: string): OpenAPIV3_1.ResponsesObject {
-    return this.spec['components']['responses'][ref];
+  getResponseObject(ref: string): OpenAPIV3_1.ResponseObject {
+    const response = this.spec['components']['responses'][ref];
+    if (response['$ref']) {
+      return this.getResponseObject(response['$ref'].split('/').pop());
+    }
+    return response as OpenAPIV3_1.ResponseObject;
   }
 
   getParameterObject(ref: string): OpenAPIV3_1.ParameterObject {
-    return this.spec['components']['parameters'][ref];
+    const response = this.spec['components']['responses'][ref];
+    if (response['$ref']) {
+      return this.getParameterObject(response['$ref'].split('/').pop());
+    }
+    return response as OpenAPIV3_1.ParameterObject;
   }
 
   getExampleObject(ref: string): OpenAPIV3_1.ExampleObject {
@@ -81,7 +88,11 @@ export class OpenApi {
   }
 
   getRequestBodiesObject(ref: string): OpenAPIV3_1.RequestBodyObject {
-    return this.spec['components']['requestBodies'][ref];
+    const response = this.spec['components']['responses'][ref];
+    if (response['$ref']) {
+      return this.getRequestBodiesObject(response['$ref'].split('/').pop());
+    }
+    return response as OpenAPIV3_1.RequestBodyObject;
   }
 
   getHeadersObject(ref: string): OpenAPIV3_1.HeaderObject {
@@ -89,7 +100,11 @@ export class OpenApi {
   }
 
   getSecuritySchemesObject(ref: string): OpenAPIV3_1.SecuritySchemeObject {
-    return this.spec['components']['securitySchemes'][ref];
+    const response = this.spec['components']['responses'][ref];
+    if (response['$ref']) {
+      return this.getSecuritySchemesObject(response['$ref'].split('/').pop());
+    }
+    return response as OpenAPIV3_1.SecuritySchemeObject;
   }
 
   getLinksObject(ref: string): OpenAPIV3_1.LinkObject {
@@ -97,7 +112,11 @@ export class OpenApi {
   }
 
   getCallbacksObject(ref: string): OpenAPIV3_1.CallbackObject {
-    return this.spec['components']['callbacks'][ref];
+    const response = this.spec['components']['responses'][ref];
+    if (response['$ref']) {
+      return this.getCallbacksObject(response['$ref'].split('/').pop());
+    }
+    return response as OpenAPIV3_1.CallbackObject;
   }
 
   getPathItemsObject(ref: string): OpenAPIV3_1.PathItemObject {
