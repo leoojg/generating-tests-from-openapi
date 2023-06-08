@@ -6,11 +6,11 @@ type OpenApiPath = {
   name: string;
   parameters: Array<OpenAPIV3_1.ParameterObject>;
   methods: {
-    [key in keyof typeof HTTP_AVAILABLE_METHODS]?: {
+    [key in 'get' | 'put' | 'post' | 'delete' | 'options' | 'head' | 'patch' | 'trace']?: {
       parameters: Array<OpenAPIV3_1.ParameterObject>;
-      requestBody: OpenAPIV3_1.RequestBodyObject;
+      requestBody?: OpenAPIV3_1.RequestBodyObject;
       responses: OpenAPIV3_1.ResponsesObject;
-      callbacks: OpenAPIV3_1.CallbackObject;
+      callbacks?: OpenAPIV3_1.CallbackObject;
       security: Array<OpenAPIV3_1.SecurityRequirementObject>;
       servers: Array<OpenAPIV3_1.ServerObject>;
     };
@@ -20,7 +20,8 @@ type OpenApiPath = {
 export class OpenApi {
   private spec: OpenAPIV3_1.Document;
   private url: string;
-  private paths: Array<OpenApiPath> = [];
+
+  paths: Array<OpenApiPath> = [];
 
   constructor(url: string) {
     this.url = url;
@@ -49,20 +50,39 @@ export class OpenApi {
         ),
       );
       for (const method of methods) {
+        path.methods[method] = {
+          parameters: [],
+          requestBody: null,
+          responses: {},
+          callbacks: {},
+          security: [],
+          servers: [],
+        };
+
         const parameters = this.getMethodParameters(endpoint, method);
-        // TODO: handle use of parameters
+        path.methods[method].parameters.push(
+          ...parameters.map((parameter) =>
+            this.handleReferenceObject<OpenAPIV3_1.ParameterObject>(parameter, this.getParameterObject.bind(this)),
+          ),
+        );
         const requestBody = this.getRequestBody(endpoint, method);
-        // TODO: handle use of requestBody
+        path.methods[method].requestBody = this.handleReferenceObject<OpenAPIV3_1.RequestBodyObject>(
+          requestBody,
+          this.getRequestBodiesObject.bind(this),
+        );
         const responses = this.getMethodResponses(endpoint, method);
-        // TODO: handle use of responses
+        path.methods[method].responses = this.handleReferenceObject<OpenAPIV3_1.ResponsesObject>(
+          responses,
+          this.getResponseObject.bind(this),
+        );
+        // TODO: study how callbacks, security and servers are used
         // TODO: Add get and handle of callbacks
         // TODO: Add get and handle of security
         // TODO: Add get and handle of servers
-        break;
       }
       this.paths.push(path);
-      break;
     }
+    console.log('Spec formatted.');
   }
 
   getEndpointParameters(path: string) {
