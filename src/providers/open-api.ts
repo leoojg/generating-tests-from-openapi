@@ -1,22 +1,89 @@
 import * as SwaggerParser from 'swagger-parser';
-import { OpenAPI, OpenAPIV3_1 } from 'openapi-types';
+import { OpenAPIV3_1 } from 'openapi-types';
+import { HTTP_AVAILABLE_METHODS } from 'src/constants';
+
+type OpenApiPath = {
+  name: string;
+  parameters: Array<OpenAPIV3_1.ParameterObject>;
+  methods: {
+    [key in keyof typeof HTTP_AVAILABLE_METHODS]?: {
+      parameters: Array<OpenAPIV3_1.ParameterObject>;
+      requestBody: OpenAPIV3_1.RequestBodyObject;
+      responses: OpenAPIV3_1.ResponsesObject;
+      callbacks: OpenAPIV3_1.CallbackObject;
+      security: Array<OpenAPIV3_1.SecurityRequirementObject>;
+      servers: Array<OpenAPIV3_1.ServerObject>;
+    };
+  };
+};
 
 export class OpenApi {
   private spec: OpenAPIV3_1.Document;
   private url: string;
+  private paths: Array<OpenApiPath> = [];
 
   constructor(url: string) {
     this.url = url;
   }
 
   async init() {
-    this.spec = (await SwaggerParser.parse(this.url)) as OpenAPIV3_1.Document;
+    this.spec = (await SwaggerParser.dereference(this.url)) as OpenAPIV3_1.Document;
     console.log('Swagger spec loaded. Version: ' + (this.spec as any).openapi);
+    this.format();
+  }
 
-    const firstPath = this.getEndpoints()[0];
-    const path = this.spec.paths[firstPath];
-    const response = path.get.responses['200'];
-    console.log(response);
+  format() {
+    console.log('Formatting spec...');
+    const endpoints = this.getEndpoints();
+    for (const endpoint of endpoints) {
+      const path: OpenApiPath = {
+        name: endpoint,
+        parameters: [],
+        methods: {},
+      };
+      const methods = this.getPathMethods(endpoint);
+      const pathParameters = this.getEndpointParameters(endpoint);
+      path.parameters.push(
+        ...pathParameters.map((parameter) =>
+          this.handleReferenceObject<OpenAPIV3_1.ParameterObject>(parameter, this.getParameterObject.bind(this)),
+        ),
+      );
+      for (const method of methods) {
+        const parameters = this.getMethodParameters(endpoint, method);
+        // TODO: handle use of parameters
+        const requestBody = this.getRequestBody(endpoint, method);
+        // TODO: handle use of requestBody
+        const responses = this.getMethodResponses(endpoint, method);
+        // TODO: handle use of responses
+        // TODO: Add get and handle of callbacks
+        // TODO: Add get and handle of security
+        // TODO: Add get and handle of servers
+        break;
+      }
+      this.paths.push(path);
+      break;
+    }
+  }
+
+  getEndpointParameters(path: string) {
+    return this.spec.paths[path].parameters;
+  }
+
+  getMethodResponses(path: string, method: keyof typeof HTTP_AVAILABLE_METHODS) {
+    return this.spec.paths[path][method].responses;
+  }
+
+  getRequestBody(path: string, method: keyof typeof HTTP_AVAILABLE_METHODS) {
+    return this.spec.paths[path][method].requestBody;
+  }
+
+  getMethodParameters(path: string, method: keyof typeof HTTP_AVAILABLE_METHODS) {
+    return this.spec.paths[path][method].parameters;
+  }
+
+  getPathMethods(path: string): Array<keyof typeof HTTP_AVAILABLE_METHODS> {
+    const methods = Object.keys(this.spec.paths[path]);
+    return methods.filter((method) => HTTP_AVAILABLE_METHODS[method]) as Array<keyof typeof HTTP_AVAILABLE_METHODS>;
   }
 
   getEndpoints(): Array<string> {
@@ -24,42 +91,15 @@ export class OpenApi {
     return paths;
   }
 
-  handleComponentObject(
-    ref: string,
-  ):
-    | OpenAPIV3_1.SchemaObject
-    | OpenAPIV3_1.ResponsesObject
-    | OpenAPIV3_1.ParameterObject
-    | OpenAPIV3_1.ExampleObject
-    | OpenAPIV3_1.RequestBodyObject
-    | OpenAPIV3_1.HeaderObject
-    | OpenAPIV3_1.SecuritySchemeObject
-    | OpenAPIV3_1.LinkObject
-    | OpenAPIV3_1.CallbackObject
-    | OpenAPIV3_1.PathItemObject {
-    const type = ref.split('/')[2];
-    switch (type) {
-      case 'schemas':
-        return this.getSchemaObject(ref);
-      case 'responses':
-        return this.getResponseObject(ref);
-      case 'parameters':
-        return this.getParameterObject(ref);
-      case 'examples':
-        return this.getExampleObject(ref);
-      case 'requestBodies':
-        return this.getRequestBodiesObject(ref);
-      case 'headers':
-        return this.getHeadersObject(ref);
-      case 'securitySchemes':
-        return this.getSecuritySchemesObject(ref);
-      case 'links':
-        return this.getLinksObject(ref);
-      case 'callbacks':
-        return this.getCallbacksObject(ref);
-      case 'pathItems':
-        return this.getPathItemsObject(ref);
+  IsRef(object: unknown): boolean {
+    return object?.hasOwnProperty('$ref');
+  }
+
+  handleReferenceObject<T>(parameter: T | OpenAPIV3_1.ReferenceObject, resolveReference: (ref: string) => T): T {
+    if (this.IsRef(parameter)) {
+      return resolveReference(parameter['$ref']);
     }
+    return parameter as T;
   }
 
   getSchemaObject(ref: string): OpenAPIV3_1.SchemaObject {
