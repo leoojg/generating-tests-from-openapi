@@ -2,11 +2,12 @@ import * as SwaggerParser from 'swagger-parser';
 import { OpenAPIV3_1 } from 'openapi-types';
 import { HTTP_AVAILABLE_METHODS } from 'src/constants';
 
+type HTTP_METHODS = 'get' | 'put' | 'post' | 'delete' | 'options' | 'head' | 'patch' | 'trace';
 type OpenApiPath = {
   name: string;
   parameters: Array<OpenAPIV3_1.ParameterObject>;
   methods: {
-    [key in 'get' | 'put' | 'post' | 'delete' | 'options' | 'head' | 'patch' | 'trace']?: {
+    [key in HTTP_METHODS]?: {
       parameters: Array<OpenAPIV3_1.ParameterObject>;
       requestBody?: OpenAPIV3_1.RequestBodyObject;
       responses: OpenAPIV3_1.ResponsesObject;
@@ -21,7 +22,7 @@ export class OpenApi {
   private spec: OpenAPIV3_1.Document;
   private url: string;
 
-  paths: Array<OpenApiPath> = [];
+  private paths: Array<OpenApiPath> = [];
 
   constructor(url: string) {
     this.url = url;
@@ -76,9 +77,6 @@ export class OpenApi {
           this.getResponseObject.bind(this),
         );
         // TODO: study how callbacks, security and servers are used
-        // TODO: Add get and handle of callbacks
-        // TODO: Add get and handle of security
-        // TODO: Add get and handle of servers
       }
       this.paths.push(path);
     }
@@ -89,21 +87,21 @@ export class OpenApi {
     return this.spec.paths[path].parameters;
   }
 
-  getMethodResponses(path: string, method: keyof typeof HTTP_AVAILABLE_METHODS) {
+  getMethodResponses(path: string, method: HTTP_METHODS) {
     return this.spec.paths[path][method].responses;
   }
 
-  getRequestBody(path: string, method: keyof typeof HTTP_AVAILABLE_METHODS) {
+  getRequestBody(path: string, method: HTTP_METHODS) {
     return this.spec.paths[path][method].requestBody;
   }
 
-  getMethodParameters(path: string, method: keyof typeof HTTP_AVAILABLE_METHODS) {
+  getMethodParameters(path: string, method: HTTP_METHODS) {
     return this.spec.paths[path][method].parameters;
   }
 
-  getPathMethods(path: string): Array<keyof typeof HTTP_AVAILABLE_METHODS> {
+  getPathMethods(path: string): Array<HTTP_METHODS> {
     const methods = Object.keys(this.spec.paths[path]);
-    return methods.filter((method) => HTTP_AVAILABLE_METHODS[method]) as Array<keyof typeof HTTP_AVAILABLE_METHODS>;
+    return methods.filter((method) => HTTP_AVAILABLE_METHODS[method]) as Array<HTTP_METHODS>;
   }
 
   getEndpoints(): Array<string> {
