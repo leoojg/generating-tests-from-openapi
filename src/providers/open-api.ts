@@ -1,6 +1,8 @@
 import * as SwaggerParser from 'swagger-parser';
 import { OpenAPIV3_1 } from 'openapi-types';
 import { HTTP_AVAILABLE_METHODS } from 'src/constants';
+import { AxiosRequestConfig } from 'axios';
+import { JSONSchemaFaker } from 'json-schema-faker';
 
 type HTTP_METHODS = 'get' | 'put' | 'post' | 'delete' | 'options' | 'head' | 'patch' | 'trace';
 type OpenApiPath = {
@@ -18,11 +20,20 @@ type OpenApiPath = {
   };
 };
 
+type TestingOption = {
+  name: string;
+  method: HTTP_METHODS;
+  availableParameters: Array<OpenAPIV3_1.ParameterObject>;
+  requestBody?: OpenAPIV3_1.RequestBodyObject;
+  responses: OpenAPIV3_1.ResponsesObject;
+};
+
 export class OpenApi {
   private spec: OpenAPIV3_1.Document;
   private url: string;
 
   private paths: Array<OpenApiPath> = [];
+  private testingOptions: Array<TestingOption> = [];
 
   constructor(url: string) {
     this.url = url;
@@ -32,6 +43,7 @@ export class OpenApi {
     this.spec = (await SwaggerParser.dereference(this.url)) as OpenAPIV3_1.Document;
     console.log('Swagger spec loaded. Version: ' + (this.spec as any).openapi);
     this.format();
+    this.generateTests();
   }
 
   format() {
@@ -45,11 +57,13 @@ export class OpenApi {
       };
       const methods = this.getPathMethods(endpoint);
       const pathParameters = this.getEndpointParameters(endpoint);
-      path.parameters.push(
-        ...pathParameters.map((parameter) =>
-          this.handleReferenceObject<OpenAPIV3_1.ParameterObject>(parameter, this.getParameterObject.bind(this)),
-        ),
-      );
+      if (Array.isArray(pathParameters)) {
+        path.parameters.push(
+          ...pathParameters.map((parameter) =>
+            this.handleReferenceObject<OpenAPIV3_1.ParameterObject>(parameter, this.getParameterObject.bind(this)),
+          ),
+        );
+      }
       for (const method of methods) {
         path.methods[method] = {
           parameters: [],
@@ -61,11 +75,13 @@ export class OpenApi {
         };
 
         const parameters = this.getMethodParameters(endpoint, method);
-        path.methods[method].parameters.push(
-          ...parameters.map((parameter) =>
-            this.handleReferenceObject<OpenAPIV3_1.ParameterObject>(parameter, this.getParameterObject.bind(this)),
-          ),
-        );
+        if (Array.isArray(parameters)) {
+          path.methods[method].parameters.push(
+            ...parameters.map((parameter) =>
+              this.handleReferenceObject<OpenAPIV3_1.ParameterObject>(parameter, this.getParameterObject.bind(this)),
+            ),
+          );
+        }
         const requestBody = this.getRequestBody(endpoint, method);
         path.methods[method].requestBody = this.handleReferenceObject<OpenAPIV3_1.RequestBodyObject>(
           requestBody,
@@ -81,6 +97,57 @@ export class OpenApi {
       this.paths.push(path);
     }
     console.log('Spec formatted.');
+  }
+
+  generateTests() {
+    console.log('Generating tests...');
+    this.paths.forEach((path) => this.generateTest(path));
+    console.log('Tests generated.');
+  }
+
+  generateRequest(testingOption: TestingOption) {
+    const config: AxiosRequestConfig = {
+      params: {},
+      headers: {},
+    };
+    testingOption.availableParameters.forEach((parameter) => {
+      switch (parameter.in) {
+        case 'query':
+          config.params[parameter.name] = JSONSchemaFaker.generate(parameter.schema);
+          break;
+        case 'header':
+          // TODO: implement header support
+          break;
+        case 'cookie':
+          // TODO: implement cookie support
+          break;
+      }
+    });
+
+    if (testingOption.requestBody && testingOption.requestBody.content['application/json']) {
+      testingOption.requestBody.content['application/json'].schema;
+
+      config.data = JSONSchemaFaker.generate(testingOption.requestBody.content['application/json'].schema as any);
+    }
+  }
+
+  generateTest(path: OpenApiPath) {
+    //
+    for (const method of Object.keys(path.methods) as HTTP_METHODS[]) {
+      const methodConfig = path.methods[method];
+      const availableParameters = methodConfig.parameters.concat(
+        path.parameters.filter((parameter) => !methodConfig.parameters.find((p) => p.name === parameter.name)),
+      );
+      const testingOption = {
+        name: method.toUpperCase() + ': ' + path.name,
+        availableParameters,
+        method,
+        requestBody: methodConfig.requestBody,
+        responses: methodConfig.responses,
+      };
+      this.generateRequest(testingOption);
+      this.testingOptions.push(testingOption);
+    }
   }
 
   getEndpointParameters(path: string) {
