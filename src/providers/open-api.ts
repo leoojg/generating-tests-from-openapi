@@ -26,7 +26,10 @@ type TestingOption = {
   availableParameters: Array<OpenAPIV3_1.ParameterObject>;
   requestBody?: OpenAPIV3_1.RequestBodyObject;
   responses: OpenAPIV3_1.ResponsesObject;
+  requests: Array<TestingOptionRequest>;
 };
+
+type TestingOptionRequest = AxiosRequestConfig & { isValid: boolean };
 
 export class OpenApi {
   private spec: OpenAPIV3_1.Document;
@@ -106,14 +109,16 @@ export class OpenApi {
   }
 
   generateRequest(testingOption: TestingOption) {
-    const config: AxiosRequestConfig = {
+    const config: TestingOptionRequest = {
       params: {},
       headers: {},
+      isValid: true,
     };
+
     testingOption.availableParameters.forEach((parameter) => {
       switch (parameter.in) {
         case 'query':
-          config.params[parameter.name] = JSONSchemaFaker.generate(parameter.schema);
+          config.params[parameter.name] = this.generateData(parameter.schema as OpenAPIV3_1.SchemaObject, config);
           break;
         case 'header':
           // TODO: implement header support
@@ -125,9 +130,20 @@ export class OpenApi {
     });
 
     if (testingOption.requestBody && testingOption.requestBody.content['application/json']) {
-      testingOption.requestBody.content['application/json'].schema;
+      config.data = this.generateData(testingOption.requestBody.content['application/json'].schema, config);
+    }
 
-      config.data = JSONSchemaFaker.generate(testingOption.requestBody.content['application/json'].schema as any);
+    if (config.isValid) {
+      testingOption.requests.push(config);
+    }
+  }
+
+  generateData(schema: OpenAPIV3_1.SchemaObject, config: TestingOptionRequest) {
+    try {
+      return JSONSchemaFaker.generate(schema as any);
+    } catch {
+      config.isValid = false;
+      return null;
     }
   }
 
@@ -144,6 +160,7 @@ export class OpenApi {
         method,
         requestBody: methodConfig.requestBody,
         responses: methodConfig.responses,
+        requests: [],
       };
       this.generateRequest(testingOption);
       this.testingOptions.push(testingOption);
