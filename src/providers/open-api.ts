@@ -31,6 +31,13 @@ type TestingOption = {
 
 type TestingOptionRequest = AxiosRequestConfig & { isValid: boolean };
 
+type Token = {
+  name: string;
+  description: string;
+  in: 'query' | 'header' | 'cookie' | 'path';
+  schema: OpenAPIV3_1.SchemaObject;
+};
+
 export class OpenApi {
   private spec: OpenAPIV3_1.Document;
   private url: string;
@@ -46,7 +53,13 @@ export class OpenApi {
     this.spec = (await SwaggerParser.dereference(this.url)) as OpenAPIV3_1.Document;
     console.log('Swagger spec loaded. Version: ' + (this.spec as any).openapi);
     this.format();
-    this.generateTests();
+    // this.generateTests();
+    //
+  }
+
+  extractTokens() {
+    const tokens: Array<Token> = [];
+    this.paths.forEach((path) => {});
   }
 
   format() {
