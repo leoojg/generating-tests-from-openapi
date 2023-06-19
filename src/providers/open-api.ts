@@ -1,10 +1,9 @@
 import * as SwaggerParser from 'swagger-parser';
 import { OpenAPIV3_1 } from 'openapi-types';
-import { HTTP_AVAILABLE_METHODS } from 'src/constants';
+import { HTTP_AVAILABLE_METHODS, HTTP_METHODS, HTTP_METHODS_AVAILABLE_FOR_TESTING } from 'src/constants';
 import { AxiosRequestConfig } from 'axios';
 import { JSONSchemaFaker } from 'json-schema-faker';
 
-type HTTP_METHODS = 'get' | 'put' | 'post' | 'delete' | 'options' | 'head' | 'patch' | 'trace';
 type OpenApiPath = {
   name: string;
   parameters: Array<OpenAPIV3_1.ParameterObject>;
@@ -34,7 +33,9 @@ type TestingOptionRequest = AxiosRequestConfig & { isValid: boolean };
 type Token = {
   name: string;
   description: string;
-  in: 'query' | 'header' | 'cookie' | 'path';
+  path: string;
+  method: HTTP_METHODS;
+  in: 'query' | 'path';
   schema: OpenAPIV3_1.SchemaObject;
 };
 
@@ -54,12 +55,40 @@ export class OpenApi {
     console.log('Swagger spec loaded. Version: ' + (this.spec as any).openapi);
     this.format();
     // this.generateTests();
-    //
+    this.extractTokens();
   }
 
   extractTokens() {
-    const tokens: Array<Token> = [];
-    this.paths.forEach((path) => {});
+    const testingMethods = Object.keys(HTTP_AVAILABLE_METHODS).filter(
+      (key) => HTTP_METHODS_AVAILABLE_FOR_TESTING[key],
+    ) as Array<HTTP_METHODS>;
+    const tokens: Map<string, Token> = new Map();
+    this.paths.forEach((path) => {
+      testingMethods.forEach((method) => {
+        if (path.methods[method]) {
+          const possibleTokens: Map<string, OpenAPIV3_1.ParameterObject> = new Map();
+          path.methods[method].parameters.forEach((parameter: OpenAPIV3_1.ParameterObject) => {
+            possibleTokens.set(parameter.name, parameter);
+          });
+          path.parameters.forEach((parameter) => {
+            possibleTokens.set(parameter.name, parameter);
+          });
+          for (const parameter of possibleTokens.values()) {
+            if (parameter.in === 'path' || parameter.in === 'query') {
+              tokens.set(parameter.name, {
+                name: parameter.name,
+                path: path.name,
+                method,
+                description: parameter.description,
+                in: parameter.in,
+                schema: parameter.schema as OpenAPIV3_1.SchemaObject,
+              });
+            }
+          }
+        }
+      });
+    });
+    return tokens;
   }
 
   format() {
