@@ -1,6 +1,6 @@
 import * as SwaggerParser from 'swagger-parser';
 import { OpenAPIV3_1 } from 'openapi-types';
-import { HTTP_AVAILABLE_METHODS, HTTP_METHODS, HTTP_METHODS_AVAILABLE_FOR_TESTING } from 'src/constants';
+import { HTTP_AVAILABLE_METHODS, HttpMethods, HTTP_METHODS_AVAILABLE_FOR_TESTING, Token } from 'src/constants';
 import { AxiosRequestConfig } from 'axios';
 import { JSONSchemaFaker } from 'json-schema-faker';
 
@@ -8,7 +8,7 @@ type OpenApiPath = {
   name: string;
   parameters: Array<OpenAPIV3_1.ParameterObject>;
   methods: {
-    [key in HTTP_METHODS]?: {
+    [key in HttpMethods]?: {
       parameters: Array<OpenAPIV3_1.ParameterObject>;
       requestBody?: OpenAPIV3_1.RequestBodyObject;
       responses: OpenAPIV3_1.ResponsesObject;
@@ -21,7 +21,7 @@ type OpenApiPath = {
 
 type TestingOption = {
   name: string;
-  method: HTTP_METHODS;
+  method: HttpMethods;
   availableParameters: Array<OpenAPIV3_1.ParameterObject>;
   requestBody?: OpenAPIV3_1.RequestBodyObject;
   responses: OpenAPIV3_1.ResponsesObject;
@@ -29,15 +29,6 @@ type TestingOption = {
 };
 
 type TestingOptionRequest = AxiosRequestConfig & { isValid: boolean };
-
-type Token = {
-  name: string;
-  description: string;
-  path: string;
-  method: HTTP_METHODS;
-  in: 'query' | 'path';
-  schema: OpenAPIV3_1.SchemaObject;
-};
 
 export class OpenApi {
   private spec: OpenAPIV3_1.Document;
@@ -54,14 +45,21 @@ export class OpenApi {
     this.spec = (await SwaggerParser.dereference(this.url)) as OpenAPIV3_1.Document;
     console.log('Swagger spec loaded. Version: ' + (this.spec as any).openapi);
     this.format();
-    // this.generateTests();
     this.extractTokens();
+  }
+
+  getTitle() {
+    return this.spec.info.title;
+  }
+
+  getSpec() {
+    return this.spec;
   }
 
   extractTokens() {
     const testingMethods = Object.keys(HTTP_AVAILABLE_METHODS).filter(
       (key) => HTTP_METHODS_AVAILABLE_FOR_TESTING[key],
-    ) as Array<HTTP_METHODS>;
+    ) as Array<HttpMethods>;
     const tokens: Map<string, Token> = new Map();
     this.paths.forEach((path) => {
       testingMethods.forEach((method) => {
@@ -77,8 +75,6 @@ export class OpenApi {
             if (parameter.in === 'path' || parameter.in === 'query') {
               tokens.set(parameter.name, {
                 name: parameter.name,
-                path: path.name,
-                method,
                 description: parameter.description,
                 in: parameter.in,
                 schema: parameter.schema as OpenAPIV3_1.SchemaObject,
@@ -190,8 +186,7 @@ export class OpenApi {
   }
 
   generateTest(path: OpenApiPath) {
-    //
-    for (const method of Object.keys(path.methods) as HTTP_METHODS[]) {
+    for (const method of Object.keys(path.methods) as HttpMethods[]) {
       const methodConfig = path.methods[method];
       const availableParameters = methodConfig.parameters.concat(
         path.parameters.filter((parameter) => !methodConfig.parameters.find((p) => p.name === parameter.name)),
@@ -213,21 +208,21 @@ export class OpenApi {
     return this.spec.paths[path].parameters;
   }
 
-  getMethodResponses(path: string, method: HTTP_METHODS) {
+  getMethodResponses(path: string, method: HttpMethods) {
     return this.spec.paths[path][method].responses;
   }
 
-  getRequestBody(path: string, method: HTTP_METHODS) {
+  getRequestBody(path: string, method: HttpMethods) {
     return this.spec.paths[path][method].requestBody;
   }
 
-  getMethodParameters(path: string, method: HTTP_METHODS) {
+  getMethodParameters(path: string, method: HttpMethods) {
     return this.spec.paths[path][method].parameters;
   }
 
-  getPathMethods(path: string): Array<HTTP_METHODS> {
+  getPathMethods(path: string): Array<HttpMethods> {
     const methods = Object.keys(this.spec.paths[path]);
-    return methods.filter((method) => HTTP_AVAILABLE_METHODS[method]) as Array<HTTP_METHODS>;
+    return methods.filter((method) => HTTP_AVAILABLE_METHODS[method]) as Array<HttpMethods>;
   }
 
   getEndpoints(): Array<string> {

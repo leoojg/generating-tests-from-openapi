@@ -1,3 +1,5 @@
+import { OpenAPIV3_1 } from 'openapi-types';
+
 export const HTTP_AVAILABLE_METHODS = {
   get: true,
   put: true,
@@ -8,7 +10,7 @@ export const HTTP_AVAILABLE_METHODS = {
   patch: true,
   trace: true,
 } as const;
-export type HTTP_METHODS = 'get' | 'put' | 'post' | 'delete' | 'options' | 'head' | 'patch' | 'trace';
+export type HttpMethods = 'get' | 'put' | 'post' | 'delete' | 'options' | 'head' | 'patch' | 'trace';
 
 export const HTTP_METHODS_AVAILABLE_FOR_TESTING = {
   get: true,
@@ -20,3 +22,15 @@ export const HTTP_METHODS_AVAILABLE_FOR_TESTING = {
   patch: false,
   trace: false,
 } as const;
+
+export type MappedToken = {
+  token: Token;
+  availableTokens: Array<unknown>;
+};
+
+export type Token = {
+  name: string;
+  description: string;
+  in: 'query' | 'path';
+  schema: OpenAPIV3_1.SchemaObject;
+};
