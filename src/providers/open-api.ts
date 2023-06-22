@@ -1,7 +1,13 @@
 import * as SwaggerParser from 'swagger-parser';
 import { OpenAPIV3_1 } from 'openapi-types';
-import { HTTP_AVAILABLE_METHODS, HttpMethods, AVAILABLE_FOR_TESTING, Token, MappedToken } from 'src/constants';
-import { AxiosRequestConfig } from 'axios';
+import {
+  HTTP_AVAILABLE_METHODS,
+  HttpMethods,
+  AVAILABLE_FOR_TESTING,
+  Token,
+  MappedToken,
+  TestingOptionRequest,
+} from 'src/constants';
 
 type OpenApiPath = {
   name: string;
@@ -17,8 +23,6 @@ type OpenApiPath = {
     };
   };
 };
-
-type TestingOptionRequest = AxiosRequestConfig & { path: string };
 
 export class OpenApi {
   private spec: OpenAPIV3_1.Document;
@@ -143,6 +147,8 @@ export class OpenApi {
           for (let i = 0; i < quantity; i++) {
             // TODO: generate tests
             const testCase: TestingOptionRequest = {
+              baseURL: this.spec.servers[0].url,
+              method,
               url: path.name,
               path: path.name,
             };

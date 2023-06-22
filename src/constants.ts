@@ -1,3 +1,4 @@
+import { AxiosRequestConfig } from 'axios';
 import { OpenAPIV3_1 } from 'openapi-types';
 
 export const HTTP_AVAILABLE_METHODS = {
@@ -34,3 +35,6 @@ export type Token = {
   in: 'query' | 'path';
   schema: OpenAPIV3_1.SchemaObject;
 };
+
+export type TestingOptionRequest = AxiosRequestConfig & { path: string };
+export type TestingOptionResponse = { data: unknown; status: number } & TestingOptionRequest;

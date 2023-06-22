@@ -1,10 +1,19 @@
-import { chooseSpec, generateRandomData, generateTests, getMapedTokens, readOption, saveSpec } from './providers/utils';
+import {
+  chooseSpec,
+  executeTests,
+  generateRandomData,
+  generateTests,
+  getMapedTokens,
+  readOption,
+  saveSpec,
+} from './providers/utils';
 
 async function showMenu() {
   console.log('-------------- Menu --------------');
   console.log('1. Add spec');
   console.log('2. Generate random data');
   console.log('3. Generate test cases');
+  console.log('4. Execute test cases');
   console.log('0. Exit');
   console.log('----------------------------------');
 
@@ -34,6 +43,12 @@ async function showMenu() {
       const testQuantity = +(await readOption('Enter the quantity of test cases: \n'));
       const mappedToken = getMapedTokens(specToTest);
       await generateTests(specToTest, mappedToken, testQuantity);
+      break;
+    case 4:
+      const specToExecute = await chooseSpec();
+      console.clear();
+      console.log(`Running ${specToExecute}...`);
+      await executeTests(specToExecute);
       break;
     case 0:
       process.exit(0);

@@ -1,8 +1,9 @@
 import * as fs from 'fs';
-import { MappedToken, Token } from '../constants';
+import { MappedToken, TestingOptionRequest, TestingOptionResponse, Token } from '../constants';
 import { createInterface } from 'readline/promises';
 import { OpenApi } from './open-api';
 import { JSONSchemaFaker } from 'json-schema-faker';
+import axios from 'axios';
 
 function writeFile(path: string, data: object) {
   fs.writeFileSync(path, JSON.stringify(data, null, 2), {
@@ -108,4 +109,28 @@ export async function generateTests(spec: string, mappedTokens: Record<string, M
 export function selectRandomToken(tokens: Array<MappedToken>) {
   const randomIndex = Math.floor(Math.random() * tokens.length);
   return tokens[randomIndex];
+}
+
+export async function executeTests(spec: string) {
+  const results: Array<TestingOptionResponse> = [];
+  const testCases = JSON.parse(
+    fs.readFileSync(`./specs/${spec}/test-cases.json`, { encoding: 'utf-8' }),
+  ) as Array<TestingOptionRequest>;
+  const openApi = new OpenApi(`./specs/${spec}/spec.json`);
+  await openApi.init();
+  await Promise.all(
+    testCases.map(async (testCase) => {
+      return axios
+        .request(testCase)
+        .then((response) => {
+          results.push({ data: response.data, status: response.status, ...testCase });
+        })
+        .catch((err) => {
+          results.push({ data: err.response?.data, status: err.response?.status, ...testCase });
+        });
+    }),
+  );
+
+  writeFile(`./specs/${spec}/results.json`, results);
+  console.log('Results generated');
 }
