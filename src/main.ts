@@ -1,15 +1,4 @@
-import { createInterface } from 'readline/promises';
-
-import { generateRandomData, listAvailableSpecs, saveSpec } from './providers/utils';
-
-const readline = createInterface({
-  input: process.stdin,
-  output: process.stdout,
-});
-
-async function readOption(msg: string) {
-  return readline.question(msg);
-}
+import { chooseSpec, generateRandomData, generateTests, getMapedTokens, readOption, saveSpec } from './providers/utils';
 
 async function showMenu() {
   console.log('-------------- Menu --------------');
@@ -31,19 +20,20 @@ async function showMenu() {
       await saveSpec(url);
       break;
     case 2:
-      const availableSpecs = listAvailableSpecs();
-      console.log('Choose a spec: ');
-      availableSpecs.forEach((spec, index) => {
-        console.log(`${index + 1}. ${spec}`);
-      });
-      const specIndex = +(await readOption('Enter your choice: \n'));
-      const quantity = +(await readOption('Enter number of random data: \n'));
-      generateRandomData(availableSpecs[specIndex - 1], quantity);
+      const specToGenerateData = await chooseSpec();
+      const dataQuantity = +(await readOption('Enter the quantity of random data: \n'));
+      generateRandomData(specToGenerateData, dataQuantity);
 
       console.clear();
       console.log('Random data generated');
       break;
     case 3:
+      const specToTest = await chooseSpec();
+      console.clear();
+      console.log(`Loading ${specToTest}...`);
+      const testQuantity = +(await readOption('Enter the quantity of test cases: \n'));
+      const mappedToken = getMapedTokens(specToTest);
+      await generateTests(specToTest, mappedToken, testQuantity);
       break;
     case 0:
       process.exit(0);

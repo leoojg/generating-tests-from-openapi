@@ -1,8 +1,7 @@
 import * as SwaggerParser from 'swagger-parser';
 import { OpenAPIV3_1 } from 'openapi-types';
-import { HTTP_AVAILABLE_METHODS, HttpMethods, HTTP_METHODS_AVAILABLE_FOR_TESTING, Token } from 'src/constants';
+import { HTTP_AVAILABLE_METHODS, HttpMethods, AVAILABLE_FOR_TESTING, Token, MappedToken } from 'src/constants';
 import { AxiosRequestConfig } from 'axios';
-import { JSONSchemaFaker } from 'json-schema-faker';
 
 type OpenApiPath = {
   name: string;
@@ -19,23 +18,13 @@ type OpenApiPath = {
   };
 };
 
-type TestingOption = {
-  name: string;
-  method: HttpMethods;
-  availableParameters: Array<OpenAPIV3_1.ParameterObject>;
-  requestBody?: OpenAPIV3_1.RequestBodyObject;
-  responses: OpenAPIV3_1.ResponsesObject;
-  requests: Array<TestingOptionRequest>;
-};
-
-type TestingOptionRequest = AxiosRequestConfig & { isValid: boolean };
+type TestingOptionRequest = AxiosRequestConfig & { path: string };
 
 export class OpenApi {
   private spec: OpenAPIV3_1.Document;
   private url: string;
 
   private paths: Array<OpenApiPath> = [];
-  private testingOptions: Array<TestingOption> = [];
 
   constructor(url: string) {
     this.url = url;
@@ -58,7 +47,7 @@ export class OpenApi {
 
   extractTokens() {
     const testingMethods = Object.keys(HTTP_AVAILABLE_METHODS).filter(
-      (key) => HTTP_METHODS_AVAILABLE_FOR_TESTING[key],
+      (method) => AVAILABLE_FOR_TESTING[method],
     ) as Array<HttpMethods>;
     const tokens: Map<string, Token> = new Map();
     this.paths.forEach((path) => {
@@ -140,68 +129,48 @@ export class OpenApi {
     console.log('Spec formatted.');
   }
 
-  generateTests() {
+  generateTests(mappedTokens: Record<string, MappedToken>, quantity: number) {
+    const testCases: Array<TestingOptionRequest> = [];
     console.log('Generating tests...');
-    this.paths.forEach((path) => this.generateTest(path));
-    console.log('Tests generated.');
-  }
-
-  generateRequest(testingOption: TestingOption) {
-    const config: TestingOptionRequest = {
-      params: {},
-      headers: {},
-      isValid: true,
-    };
-
-    testingOption.availableParameters.forEach((parameter) => {
-      switch (parameter.in) {
-        case 'query':
-          config.params[parameter.name] = this.generateData(parameter.schema as OpenAPIV3_1.SchemaObject, config);
-          break;
-        case 'header':
-          // TODO: implement header support
-          break;
-        case 'cookie':
-          // TODO: implement cookie support
-          break;
+    this.paths.forEach((path) => {
+      const methods = Object.keys(path.methods) as Array<HttpMethods>;
+      for (const method of methods) {
+        if (AVAILABLE_FOR_TESTING[method]) {
+          const methodConfig = path.methods[method];
+          const availableParameters = methodConfig.parameters.concat(
+            path.parameters.filter((parameter) => !methodConfig.parameters.find((p) => p.name === parameter.name)),
+          );
+          for (let i = 0; i < quantity; i++) {
+            // TODO: generate tests
+            const testCase: TestingOptionRequest = {
+              url: path.name,
+              path: path.name,
+            };
+            availableParameters.forEach((parameter) => {
+              const selectedValue =
+                mappedTokens[parameter.name].availableTokens[
+                  Math.ceil(Math.random() * mappedTokens[parameter.name].availableTokens.length)
+                ];
+              if (parameter.in === 'path') {
+                testCase.url = testCase.url.replace(`{${parameter.name}}`, encodeURIComponent(selectedValue as string));
+              }
+              if (parameter.in === 'query' && (parameter.required || Math.random() > 0.5)) {
+                testCase.params = {
+                  ...testCase.params,
+                  [parameter.name]: selectedValue,
+                };
+              }
+            });
+            testCases.push(testCase);
+            if (availableParameters.length === 0) {
+              break;
+            }
+          }
+        }
       }
     });
-
-    if (testingOption.requestBody && testingOption.requestBody.content['application/json']) {
-      config.data = this.generateData(testingOption.requestBody.content['application/json'].schema, config);
-    }
-
-    if (config.isValid) {
-      testingOption.requests.push(config);
-    }
-  }
-
-  generateData(schema: OpenAPIV3_1.SchemaObject, config: TestingOptionRequest) {
-    try {
-      return JSONSchemaFaker.generate(schema as any);
-    } catch {
-      config.isValid = false;
-      return null;
-    }
-  }
-
-  generateTest(path: OpenApiPath) {
-    for (const method of Object.keys(path.methods) as HttpMethods[]) {
-      const methodConfig = path.methods[method];
-      const availableParameters = methodConfig.parameters.concat(
-        path.parameters.filter((parameter) => !methodConfig.parameters.find((p) => p.name === parameter.name)),
-      );
-      const testingOption = {
-        name: method.toUpperCase() + ': ' + path.name,
-        availableParameters,
-        method,
-        requestBody: methodConfig.requestBody,
-        responses: methodConfig.responses,
-        requests: [],
-      };
-      this.generateRequest(testingOption);
-      this.testingOptions.push(testingOption);
-    }
+    console.log('Tests generated.');
+    return testCases;
   }
 
   getEndpointParameters(path: string) {

@@ -12,7 +12,7 @@ export const HTTP_AVAILABLE_METHODS = {
 } as const;
 export type HttpMethods = 'get' | 'put' | 'post' | 'delete' | 'options' | 'head' | 'patch' | 'trace';
 
-export const HTTP_METHODS_AVAILABLE_FOR_TESTING = {
+export const AVAILABLE_FOR_TESTING = {
   get: true,
   put: false,
   post: false,
