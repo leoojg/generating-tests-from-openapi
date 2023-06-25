@@ -1,35 +1,12 @@
 import * as fs from 'fs';
-import { MappedToken, TestingOptionRequest, TestingOptionResponse, Token } from '../constants';
+import { MappedToken } from '../constants';
 import { createInterface } from 'readline/promises';
-import { OpenApi } from './open-api';
-import { JSONSchemaFaker } from 'json-schema-faker';
-import axios from 'axios';
 
-function writeFile(path: string, data: object) {
+export function writeFile(path: string, data: object) {
   fs.writeFileSync(path, JSON.stringify(data, null, 2), {
     encoding: 'utf-8',
     flag: 'w+',
   });
-}
-
-export async function saveSpec(url: string) {
-  const spec = new OpenApi(url);
-  await spec.init();
-  const title = spec.getTitle();
-  const tokens = spec.extractTokens();
-  const path = `./specs/${title}`;
-  fs.mkdirSync(path, { recursive: true });
-  const tokenNames = Array.from(tokens.keys());
-  const mapedTokens: Record<string, MappedToken> = {};
-  tokenNames.forEach((tokenName) => {
-    const token = tokens.get(tokenName) as Token;
-    mapedTokens[tokenName] = {
-      token,
-      availableTokens: [],
-    };
-  });
-  writeFile(`${path}/spec.json`, spec.getSpec());
-  writeFile(`${path}/tokens.json`, mapedTokens);
 }
 
 export function listAvailableSpecs() {
@@ -43,30 +20,7 @@ export function getMapedTokens(spec: string) {
   >;
 }
 
-export function generateRandomData(spec: string, quantity: number) {
-  const mapedTokens = getMapedTokens(spec);
-  let error = false;
-  try {
-    Object.keys(mapedTokens).forEach((tokenName) => {
-      mapedTokens[tokenName].availableTokens = [];
-      while (mapedTokens[tokenName].availableTokens.length < quantity) {
-        mapedTokens[tokenName].availableTokens.push(
-          JSONSchemaFaker.generate(mapedTokens[tokenName].token.schema as any),
-        );
-      }
-    });
-  } catch {
-    error = true;
-  }
-
-  if (error) {
-    throw new Error('Error while generating random data');
-  }
-
-  writeFile(`./specs/${spec}/tokens.json`, mapedTokens);
-}
-
-export async function chooseSpec() {
+export async function chooseSpec(): Promise<string | undefined> {
   const availableSpecs = listAvailableSpecs();
   console.log('Choose a spec: ');
   availableSpecs.forEach((spec, index) => {
@@ -85,52 +39,16 @@ export async function readOption(msg: string) {
   return readline.question(msg);
 }
 
-export async function generateTests(spec: string, mappedTokens: Record<string, MappedToken>, quantity: number) {
-  let availableToTest = true;
-  Object.keys(mappedTokens).forEach((tokenName) => {
-    if (mappedTokens[tokenName].availableTokens.length === 0) {
-      console.log(`Token ${tokenName} has no available tokens`);
-      availableToTest = false;
-    }
-  });
-
-  if (!availableToTest) {
-    console.log('Please generate random data before generating test cases');
-    return;
-  }
-
-  const openApi = new OpenApi(`./specs/${spec}/spec.json`);
-  await openApi.init();
-  const testCases = openApi.generateTests(mappedTokens, quantity);
-
-  writeFile(`./specs/${spec}/test-cases.json`, testCases);
-}
-
 export function selectRandomToken(tokens: Array<MappedToken>) {
   const randomIndex = Math.floor(Math.random() * tokens.length);
   return tokens[randomIndex];
 }
 
-export async function executeTests(spec: string) {
-  const results: Array<TestingOptionResponse> = [];
-  const testCases = JSON.parse(
-    fs.readFileSync(`./specs/${spec}/test-cases.json`, { encoding: 'utf-8' }),
-  ) as Array<TestingOptionRequest>;
-  const openApi = new OpenApi(`./specs/${spec}/spec.json`);
-  await openApi.init();
-  await Promise.all(
-    testCases.map(async (testCase) => {
-      return axios
-        .request(testCase)
-        .then((response) => {
-          results.push({ data: response.data, status: response.status, ...testCase });
-        })
-        .catch((err) => {
-          results.push({ data: err.response?.data, status: err.response?.status, ...testCase });
-        });
-    }),
-  );
-
-  writeFile(`./specs/${spec}/results.json`, results);
-  console.log('Results generated');
+export function isValidSpec(spec: string | null) {
+  if (!spec) {
+    console.clear();
+    console.log(`Invalid spec`);
+    return false;
+  }
+  return true;
 }

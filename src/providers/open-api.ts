@@ -145,7 +145,6 @@ export class OpenApi {
             path.parameters.filter((parameter) => !methodConfig.parameters.find((p) => p.name === parameter.name)),
           );
           for (let i = 0; i < quantity; i++) {
-            // TODO: generate tests
             const testCase: TestingOptionRequest = {
               baseURL: this.spec.servers[0].url,
               method,
