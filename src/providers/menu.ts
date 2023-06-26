@@ -4,7 +4,7 @@ import axios from 'axios';
 import { JSONSchemaFaker } from 'json-schema-faker';
 import { MappedToken, Token, TestingOptionResponse, TestingOptionRequest } from 'src/constants';
 import { OpenApi } from './open-api';
-import { writeFile, chooseSpec, isValidSpec, readOption, getMapedTokens } from './utils';
+import { writeFile, chooseSpec, isValidSpec, readOption, getMapedTokens, fileExists } from './utils';
 
 export async function saveSpec(url: string) {
   const spec = new OpenApi(url);
@@ -63,10 +63,11 @@ export async function generateTests() {
 
   if (!isValidSpec(spec)) return;
 
-  console.clear();
-  console.log(`Loading ${spec}...`);
   const quantity = +(await readOption('Enter the quantity of test cases: \n'));
   const mappedTokens = getMapedTokens(spec);
+
+  console.log(`Generating tests for ${spec}...`);
+
   let availableToTest = true;
   Object.keys(mappedTokens).forEach((tokenName) => {
     if (mappedTokens[tokenName].availableTokens.length === 0) {
@@ -76,7 +77,7 @@ export async function generateTests() {
   });
 
   if (!availableToTest) {
-    console.log('Please generate random data before generating test cases');
+    console.log('Please provide availableTokens in tokens.json file before generating test cases');
     return;
   }
 
@@ -91,13 +92,17 @@ export async function executeTests() {
   const spec = await chooseSpec();
 
   if (!isValidSpec(spec)) return;
-
-  console.clear();
   console.log(`Running ${spec}...`);
+
+  const path = `./specs/${spec}/test-cases.json`;
+
+  if (!fileExists(path)) {
+    console.log('Please generate test cases before executing them');
+    return;
+  }
+
   const results: Array<TestingOptionResponse> = [];
-  const testCases = JSON.parse(
-    fs.readFileSync(`./specs/${spec}/test-cases.json`, { encoding: 'utf-8' }),
-  ) as Array<TestingOptionRequest>;
+  const testCases = JSON.parse(fs.readFileSync(path, { encoding: 'utf-8' })) as Array<TestingOptionRequest>;
   const openApi = new OpenApi(`./specs/${spec}/spec.json`);
   await openApi.init();
   await Promise.all(
@@ -115,4 +120,27 @@ export async function executeTests() {
 
   writeFile(`./specs/${spec}/results.json`, results);
   console.log('Results generated');
+}
+
+export async function evaluateResults() {
+  const spec = await chooseSpec();
+
+  if (!isValidSpec(spec)) return;
+  console.log(`Evaluating ${spec}...`);
+
+  const path = `./specs/${spec}/results.json`;
+
+  if (!fileExists(path)) {
+    console.log(`results.json from ${spec} not found`);
+    return;
+  }
+
+  const results = JSON.parse(fs.readFileSync(path, { encoding: 'utf-8' })) as Array<TestingOptionResponse>;
+
+  const openApi = new OpenApi(`./specs/${spec}/spec.json`);
+  await openApi.init();
+
+  const evaluation = openApi.evaluateResponses(results);
+
+  writeFile(`./specs/${spec}/evaluation.json`, evaluation);
 }

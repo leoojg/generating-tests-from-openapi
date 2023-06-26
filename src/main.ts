@@ -1,4 +1,4 @@
-import { saveSpec, generateRandomData, generateTests, executeTests } from './providers/menu';
+import { saveSpec, generateRandomData, generateTests, executeTests, evaluateResults } from './providers/menu';
 import { readOption } from './providers/utils';
 
 async function showMenu() {
@@ -30,6 +30,9 @@ async function showMenu() {
       break;
     case 4:
       await executeTests();
+      break;
+    case 5:
+      await evaluateResults();
       break;
     case 0:
       process.exit(0);

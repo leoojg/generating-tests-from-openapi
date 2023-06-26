@@ -45,10 +45,14 @@ export function selectRandomToken(tokens: Array<MappedToken>) {
 }
 
 export function isValidSpec(spec: string | null) {
+  console.clear();
   if (!spec) {
-    console.clear();
     console.log(`Invalid spec`);
     return false;
   }
   return true;
+}
+
+export function fileExists(path: string) {
+  return fs.existsSync(path);
 }
