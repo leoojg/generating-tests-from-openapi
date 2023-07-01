@@ -203,7 +203,7 @@ export class OpenApi {
 
       const responses = this.spec.paths[path][method as HttpMethods].responses;
       if (!responses[result.status]) {
-        pathEvaluation[path].errors.push(`Response ${result.status} not defined`);
+        pathEvaluation[path].errors.push(`Response with status code ${result.status} not defined`);
         pathEvaluation[path].failedRequestsDetails.push(result);
         pathEvaluation[path].success = false;
         pathEvaluation[path].failedRequests++;
@@ -214,7 +214,7 @@ export class OpenApi {
         .schema as OpenAPIV3_1.SchemaObject;
 
       try {
-        const validation = validator.validate(schema, result.data);
+        const validation = validator.validate(schema, result.data, { allowUnknownAttributes: false });
         if (!validation.valid) {
           throw new Error(validation.errors[0].message);
         }
