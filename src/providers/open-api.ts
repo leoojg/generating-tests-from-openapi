@@ -1,6 +1,6 @@
 import * as SwaggerParser from 'swagger-parser';
 import { OpenAPIV3_1 } from 'openapi-types';
-import Ajv from 'ajv';
+import { Validator } from 'jsonschema';
 import {
   HTTP_AVAILABLE_METHODS,
   HttpMethods,
@@ -157,7 +157,8 @@ export class OpenApi {
             availableParameters.forEach((parameter) => {
               const selectedValue =
                 mappedTokens[parameter.name].availableTokens[
-                  Math.ceil(Math.random() * mappedTokens[parameter.name].availableTokens.length)
+                  Math.ceil(Math.random() * mappedTokens[parameter.name].availableTokens.length) %
+                    mappedTokens[parameter.name].availableTokens.length
                 ];
               if (parameter.in === 'path') {
                 testCase.url = testCase.url.replace(`{${parameter.name}}`, encodeURIComponent(selectedValue as string));
@@ -182,7 +183,7 @@ export class OpenApi {
   }
 
   evaluateResponses(results: Array<TestingOptionResponse>) {
-    const ajv = new Ajv();
+    const validator = new Validator();
     const pathEvaluation: Record<string, Evaluate> = {};
     results.forEach((result) => {
       const { path, method } = result;
@@ -195,12 +196,14 @@ export class OpenApi {
           totalRequests: 0,
           failedRequestsDetails: [],
           successRate: 0,
+          errors: [],
         };
       }
       pathEvaluation[path].totalRequests++;
 
-      const responses = this.spec.paths[path][method as HttpMethods];
+      const responses = this.spec.paths[path][method as HttpMethods].responses;
       if (!responses[result.status]) {
+        pathEvaluation[path].errors.push(`Response ${result.status} not defined`);
         pathEvaluation[path].failedRequestsDetails.push(result);
         pathEvaluation[path].success = false;
         pathEvaluation[path].failedRequests++;
@@ -210,8 +213,13 @@ export class OpenApi {
       const schema = (responses[String(result.status)] as OpenAPIV3_1.ResponseObject).content['application/json']
         .schema as OpenAPIV3_1.SchemaObject;
 
-      const isValid = ajv.validate(schema, result.data);
-      if (!isValid) {
+      try {
+        const validation = validator.validate(schema, result.data);
+        if (!validation.valid) {
+          throw new Error(validation.errors[0].message);
+        }
+      } catch (error) {
+        pathEvaluation[path].errors.push(error);
         pathEvaluation[path].failedRequestsDetails.push(result);
         pathEvaluation[path].success = false;
         pathEvaluation[path].failedRequests++;
@@ -220,7 +228,9 @@ export class OpenApi {
 
       pathEvaluation[path].successfullRequests++;
     });
-    // TODO: calculate success rate
+    Object.keys(pathEvaluation).forEach((path) => {
+      pathEvaluation[path].successRate = pathEvaluation[path].successfullRequests / pathEvaluation[path].totalRequests;
+    });
     return pathEvaluation;
   }
 

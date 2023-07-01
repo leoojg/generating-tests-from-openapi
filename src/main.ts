@@ -18,8 +18,7 @@ async function showMenu() {
 
   switch (option) {
     case 1:
-      let url = await readOption('Enter OpenAPI URL: \n');
-      url = 'https://api.apis.guru/v2/specs/medium.com/1.0/openapi.json';
+      const url = await readOption('Enter OpenAPI URL: \n');
       await saveSpec(url);
       break;
     case 2:

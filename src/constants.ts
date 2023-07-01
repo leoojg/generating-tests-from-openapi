@@ -45,4 +45,5 @@ export type Evaluate = {
   totalRequests: number;
   successRate: number;
   failedRequestsDetails: Array<TestingOptionResponse>;
+  errors: Array<unknown>;
 };

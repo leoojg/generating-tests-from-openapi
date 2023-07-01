@@ -113,7 +113,7 @@ export async function executeTests() {
           results.push({ data: response.data, status: response.status, ...testCase });
         })
         .catch((err) => {
-          results.push({ data: err.response?.data, status: err.response?.status, ...testCase });
+          results.push({ data: err.response?.data ?? {}, status: err.response?.status ?? 500, ...testCase });
         });
     }),
   );
