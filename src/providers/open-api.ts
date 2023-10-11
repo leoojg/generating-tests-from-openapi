@@ -9,8 +9,10 @@ import {
   MappedToken,
   TestingOptionRequest,
   TestingOptionResponse,
-  Evaluate,
+  EvaluationStatus,
+  StatusResponse,
 } from 'src/constants';
+import { getStatusEvaluation } from './utils';
 
 type OpenApiPath = {
   name: string;
@@ -184,29 +186,33 @@ export class OpenApi {
 
   evaluateResponses(results: Array<TestingOptionResponse>) {
     const validator = new Validator();
-    const pathEvaluation: Record<string, Evaluate> = {};
+    const pathEvaluation: Record<string, EvaluationStatus> = {};
+    const statusResponse: StatusResponse = {};
     results.forEach((result) => {
-      const { path, method } = result;
+      const { path, method, status } = result;
 
+      const statusString = getStatusEvaluation(status);
       if (!pathEvaluation[path]) {
-        pathEvaluation[path] = {
-          success: true,
-          successfullRequests: 0,
-          failedRequests: 0,
-          totalRequests: 0,
-          failedRequestsDetails: [],
-          successRate: 0,
-          errors: [],
+        pathEvaluation[path] = {};
+      }
+
+      if (!statusResponse[statusString]) {
+        statusResponse[statusString] = [];
+      }
+      if (!pathEvaluation[path][statusString]) {
+        pathEvaluation[path][statusString] = {
+          failed: 0,
+          success: 0,
+          total: 0,
+          unknown: 0,
         };
       }
-      pathEvaluation[path].totalRequests++;
+      pathEvaluation[path][statusString].total++;
+      statusResponse[statusString].push(result);
 
       const responses = this.spec.paths[path][method as HttpMethods].responses;
       if (!responses[result.status]) {
-        pathEvaluation[path].errors.push(`Response with status code ${result.status} not defined`);
-        pathEvaluation[path].failedRequestsDetails.push(result);
-        pathEvaluation[path].success = false;
-        pathEvaluation[path].failedRequests++;
+        pathEvaluation[path][statusString].unknown++;
         return;
       }
 
@@ -219,19 +225,13 @@ export class OpenApi {
           throw new Error(validation.errors[0].message);
         }
       } catch (error) {
-        pathEvaluation[path].errors.push(error);
-        pathEvaluation[path].failedRequestsDetails.push(result);
-        pathEvaluation[path].success = false;
-        pathEvaluation[path].failedRequests++;
+        pathEvaluation[path][statusString].failed++;
         return;
       }
 
-      pathEvaluation[path].successfullRequests++;
+      pathEvaluation[path][statusString].success++;
     });
-    Object.keys(pathEvaluation).forEach((path) => {
-      pathEvaluation[path].successRate = pathEvaluation[path].successfullRequests / pathEvaluation[path].totalRequests;
-    });
-    return pathEvaluation;
+    return { pathEvaluation, statusResponse };
   }
 
   getEndpointParameters(path: string) {

@@ -56,3 +56,16 @@ export function isValidSpec(spec: string | null) {
 export function fileExists(path: string) {
   return fs.existsSync(path);
 }
+
+export function getStatusEvaluation(status: number) {
+  if (status >= 200 && status < 300) {
+    return '2xx';
+  }
+  if (status >= 400 && status < 500) {
+    return '4xx';
+  }
+  if (status >= 500 && status < 600) {
+    return '5xx';
+  }
+  return 'unknown';
+}

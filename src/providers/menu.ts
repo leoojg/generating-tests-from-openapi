@@ -63,6 +63,8 @@ export async function generateTests() {
 
   if (!isValidSpec(spec)) return;
 
+  // TODO: add the possibility to generate test for every token in the spec
+  // maybe remove the quantity, and generate tests for every token with all other tokens
   const quantity = +(await readOption('Enter the quantity of test cases: \n'));
   const mappedTokens = getMapedTokens(spec);
 

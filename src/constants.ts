@@ -38,12 +38,18 @@ export type Token = {
 
 export type TestingOptionRequest = AxiosRequestConfig & { path: string };
 export type TestingOptionResponse = { data: unknown; status: number } & TestingOptionRequest;
-export type Evaluate = {
-  success: boolean;
-  successfullRequests: number;
-  failedRequests: number;
-  totalRequests: number;
-  successRate: number;
-  failedRequestsDetails: Array<TestingOptionResponse>;
-  errors: Array<unknown>;
+
+type Evaluation = {
+  total: number;
+  success: number;
+  failed: number;
+  unknown: number;
 };
+
+type StatusEvaluation = '2xx' | '4xx' | '5xx' | 'unknown';
+
+export type EvaluationStatus = {
+  [key in StatusEvaluation]?: Evaluation;
+};
+
+export type StatusResponse = { [key in StatusEvaluation]?: Array<TestingOptionResponse> };
